@@ -1,0 +1,62 @@
+version: '2'
+services:
+
+    app:
+          image: tianon/true
+          volumes:
+              - ../laravel-vue:/var/www/
+              - /vendor
+          tty: true
+
+    web:
+          build:
+            context: ./docker/web
+            args:
+              - PHP_UPSTREAM_CONTAINER=php-fpm
+              - PHP_UPSTREAM_PORT=9000
+          volumes_from:
+            - app
+          volumes:
+            - ./logs/nginx:/var/log/nginx
+            - ./docker/web/nginx.conf:/etc/nginx/nginx.conf
+            - ./docker/web/sites:/etc/nginx/sites-available
+          ports:
+            - 80:80
+            - 443:443
+          depends_on:
+            - php-fpm
+    php-fpm:
+          build:
+            context: ./docker/php
+          volumes_from:
+            - app
+          volumes:
+            - ./docker/php/php.ini:/usr/local/etc/php/php.ini
+            - ./docker/php/endpoint.sh:/opt/scripts/endpoint.sh
+          expose:
+            - "9000"
+          depends_on:
+            - mysql
+            - redis-srv
+          tty: true
+    mysql:
+          build:
+            context: ./docker/mysql
+            args:
+              - MYSQL_VERSION=5.7
+          environment:
+            - MYSQL_DATABASE=laravel
+            - MYSQL_USER=admin
+            - MYSQL_PASSWORD=123456
+            - MYSQL_ROOT_PASSWORD=123456
+            - TZ=UTC
+          # uncomment for Linux
+          #volumes:
+          #  - ./docker/mysql/volumes:/var/lib/mysql
+          #  - ${MYSQL_ENTRYPOINT_INITDB}:/docker-entrypoint-initdb.d
+          ports:
+            - 3366:3306
+    redis-srv:
+        build: ./docker/redis/
+        ports:
+          - 6379:6379
